@@ -147,6 +147,23 @@ print(decode(m.generate(idx = torch.zeros((1, 1), dtype=torch.long), max_new_tok
 # mathematical trick in self attention
 # efficient implementation
 # the tokens should talk in 3 2 1 = 4 not 5 6 7 = 4 coz we are basing this on history not on prediction of history
+#tril = triangle
+
+torch.tril(torch.ones(3,3))
+torch.manual_seed(42)
+a = torch.tril(torch.ones(3,3))
+a = a / torch.sum(a, 1, keepdim = True)
+b = torch.randint(0,10,(3,2)).float()
+c = a @ b
+print('a=')
+print(a)
+print('--')
+print('b=')
+print(b)
+print('c=')
+print(c)
+
+
 torch.manual_seed(1337)
 B,T,C = 4,8,32
 x = torch.randn(B,T,C)
@@ -176,18 +193,30 @@ wei = F.softmax(wei, dim =1)
 xbow3 = wei @ x
 torch.allclose(xbow,xbow2)
 
-#tril = triangle
-torch.tril(torch.ones(3,3))
-torch.manual_seed(42)
-a = torch.tril(torch.ones(3,3))
-a = a / torch.sum(a, 1, keepdim = True)
-b = torch.randint(0,10,(3,2)).float()
-c = a@b
-print('a=')
-print(a)
-print('--')
-print('b=')
-print(b)
-print('c=')
-print(c)
 
+# version 4: self-attention!
+torch.manual_seed(1337)
+B,T,C = 4,8,32 # batch, time, channels
+x = torch.randn(B,T,C)
+
+# let's see a single Head perform self-attention
+head_size = 16
+key = nn.Linear(C, head_size, bias=False)
+query = nn.Linear(C, head_size, bias=False)
+value = nn.Linear(C, head_size, bias=False)
+k = key(x)   # (B, T, 16)
+q = query(x) # (B, T, 16)
+wei =  q @ k.transpose(-2, -1) # (B, T, 16) @ (B, 16, T) ---> (B, T, T)
+
+tril = torch.tril(torch.ones(T, T))
+#wei = torch.zeros((T,T))
+wei = wei.masked_fill(tril == 0, float('-inf'))
+wei = F.softmax(wei, dim=-1)
+
+v = value(x)
+out = wei @ v
+#out = wei @ x
+
+out.shape
+
+print(wei[0])
