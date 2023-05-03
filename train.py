@@ -3,7 +3,7 @@
 with open('input.txt','r', encoding='utf-8') as f:
     text = f.read()
 
-print("length of dataset in characters", len(text))
+# print("length of dataset in characters", len(text))
 
 # print(text[:1000])
 
@@ -13,7 +13,7 @@ print("length of dataset in characters", len(text))
 chars = sorted(list(set(text)))
 vocab_size = len(chars)
 print(''.join(chars))
-print(vocab_size)
+# print(vocab_size)
 
 
 # create a mapping from characters to integers(string tokenizer) opeAi uses tiktoken
@@ -142,3 +142,52 @@ for steps in range(10000):
 
 
 print(decode(m.generate(idx = torch.zeros((1, 1), dtype=torch.long), max_new_tokens=500)[0].tolist()))
+
+
+# mathematical trick in self attention
+# efficient implementation
+# the tokens should talk in 3 2 1 = 4 not 5 6 7 = 4 coz we are basing this on history not on prediction of history
+torch.manual_seed(1337)
+B,T,C = 4,8,32
+x = torch.randn(B,T,C)
+x.shape
+
+#bag of words
+xbow = torch.zeros((B,T,C))
+for b in range(B):
+    for t in range(T):
+        xprev = x[b,:t+1]
+        xbow[b,t] = torch.mean(xprev,0)
+
+
+# @ batch matrix multiplier
+
+wei = torch.tril(torch.ones(T,T))
+wei = wei / wei.sum(1, keepdim = True)
+xbow2 = wei @ x
+torch.allclose(xbow,xbow2)
+
+# way 2
+
+tril = torch.tril(torch.ones(T,T))
+wei = torch.zeros((T,T))
+wei = wei.masked_fill(tril ==0,float('-inf')) # this will tell not to talk to future
+wei = F.softmax(wei, dim =1)
+xbow3 = wei @ x
+torch.allclose(xbow,xbow2)
+
+#tril = triangle
+torch.tril(torch.ones(3,3))
+torch.manual_seed(42)
+a = torch.tril(torch.ones(3,3))
+a = a / torch.sum(a, 1, keepdim = True)
+b = torch.randint(0,10,(3,2)).float()
+c = a@b
+print('a=')
+print(a)
+print('--')
+print('b=')
+print(b)
+print('c=')
+print(c)
+
